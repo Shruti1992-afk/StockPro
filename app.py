@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CONFIGURATION & FULL DARK THEME ---
 st.set_page_config(page_title="StockPro Journey", layout="wide")
@@ -129,7 +130,7 @@ elif st.session_state.step == 5:
         if half_s > 0:
             profit_50 = (target - st.session_state.entry_price) * half_s
             trans_val = (shares * st.session_state.entry_price) + (half_s * target)
-            sl1 = ((profit_50 - 50 + (0.0001 * trans_val)) / half_s) + st.session_state.stop_loss_orig
+            sl1 = ((profit_50 + 50 + (0.0001 * trans_val)) / half_s) + st.session_state.stop_loss_orig
         else: sl1 = 0
         
         # DISPLAY METRICS
@@ -152,21 +153,44 @@ elif st.session_state.step == 5:
         st.session_state.current_invested = invested
 
         if st.button("Save Entry & View Journal →"):
-            new_entry = {
-                "Date": st.session_state.trade_date.strftime("%Y-%m-%d"),
-                "Stock": st.session_state.stock,
-                "Entry": st.session_state.entry_price,
-                "SL": st.session_state.stop_loss_orig,
-                "Target": target,
-                "Shares": int(shares),
-                "Investment": invested,
-                "Checks": "Passed" if st.session_state.checks else "Failed"
-            }
-            st.session_state.journal = pd.concat([st.session_state.journal, pd.DataFrame([new_entry])], ignore_index=True)
-            move_to(6)
-    else:
-        st.error("Invalid Entry: Stop loss must be lower than Entry Price.")
-        if st.button("Fix Input"): move_to(3)
+    
+    # Capture the user's Gmail ID (Only works on Streamlit Cloud)
+    user_email = st.user.email if st.user else "Local Test User"
+
+    # PREPARE DATA TO MATCH YOUR GOOGLE SHEET HEADERS
+    new_entry = {
+        "Email": user_email,
+        "Date": st.session_state.trade_date.strftime("%Y-%m-%d"),
+        "Total_Capital": st.session_state.total_inv,
+        "Stock": st.session_state.stock,
+        "Entry Price": st.session_state.entry_price,
+        "SL_Original": st.session_state.stop_loss_orig,
+        "Target_50": target,
+        "Trailing_SL1": sl1,
+        "No. of Shares": int(shares),
+        "Investment_Value": invested,
+        # Capturing individual trend checkboxes
+        "Nifty 50 Trend": "UP" if c1 else "DOWN",
+        "Sensex Trend": "UP" if c2 else "DOWN",
+        "Industry Trend": "UP" if c3 else "DOWN",
+        "Stock Trend": "UP" if c4 else "DOWN"
+    }
+
+    # PUSH TO GOOGLE SHEETS
+    try:
+        # Read existing data to append correctly
+        existing_data = conn.read(worksheet="Sheet1")
+        updated_df = pd.concat([existing_data, pd.DataFrame([new_entry])], ignore_index=True)
+        
+        # Update the sheet
+        conn.update(worksheet="Sheet1", data=updated_df)
+        st.success(f"Successfully recorded in Google Sheets for {user_email}!")
+    except Exception as e:
+        st.error(f"Cloud Save Failed: {e}. Please ensure the Sheet is shared with the Service Account email.")
+
+    # Keep local journal updated for Screen 6 display
+    st.session_state.journal = pd.concat([st.session_state.journal, pd.DataFrame([new_entry])], ignore_index=True)
+    move_to(6)
 
 # --- SCREEN 6: JOURNAL ---
 elif st.session_state.step == 6:
