@@ -94,7 +94,6 @@ elif st.session_state.step == 5:
     col3.metric("Target", f"₹{target:,.2f}")
     col4.metric("SL1", f"₹{sl1:,.2f}")
 
-    # EVERYTHING BELOW IS NOW INSIDE THE BUTTON
     if st.button("Save Entry & View Journal →"):
         # 1. Capture Identity
         user_email = st.user.email if st.user else "Local Test User"
@@ -119,20 +118,21 @@ elif st.session_state.step == 5:
 
         # 3. PUSH TO GOOGLE SHEETS
         try:
-            # We fetch existing data to maintain the sheet structure
+            # We read first to make sure we append to existing data
             existing_data = conn.read(worksheet="Sheet1")
             updated_df = pd.concat([existing_data, pd.DataFrame([new_entry])], ignore_index=True)
             conn.update(worksheet="Sheet1", data=updated_df)
             
-            # 4. Save locally and move
+            # 4. Save locally for the current session and move
             st.session_state.journal = pd.concat([st.session_state.journal, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("Saved to Cloud!")
+            st.success("✅ Successfully recorded in Google Sheets!")
             time.sleep(1)
             move_to(6)
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Cloud Save Failed: {e}")
 
 elif st.session_state.step == 6:
     st.title("📁 Trade Vault")
-    st.dataframe(st.session_state.journal)
+    # Using 'stretch' as suggested by your logs
+    st.dataframe(st.session_state.journal, width='stretch')
     if st.button("New Trade"): move_to(2)
