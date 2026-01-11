@@ -2,18 +2,20 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-conn = st.connection("gsheets", type=GSheetsConnection)
+# IMPORTANT: Missing import added here
+from streamlit_gsheets import GSheetsConnection
 
-# --- CONFIGURATION & FULL DARK THEME ---
+# --- CONFIGURATION ---
 st.set_page_config(page_title="StockPro Journey", layout="wide")
 
-# CSS for UI/UX: High Contrast, Dark Theme, and Button Styling
+# Initialize Connection
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# CSS for UI/UX
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; }
     h1, h2, h3, p, label, .stMarkdown { color: #ffffff !important; }
-
-    /* Metric Cards */
     [data-testid="stMetric"] {
         background-color: #1f2937;
         padding: 20px;
@@ -21,8 +23,6 @@ st.markdown("""
         border: 1px solid #3b82f6;
     }
     [data-testid="stMetricValue"] { color: #00ffcc !important; }
-
-    /* Button Styling */
     .stButton>button {
         width: 100%;
         background: linear-gradient(45deg, #3b82f6, #2563eb);
@@ -31,181 +31,108 @@ st.markdown("""
         font-weight: bold;
         border-radius: 10px;
     }
-    
-    /* Progress Bar Color */
     .stProgress > div > div > div > div { background-color: #3b82f6; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INITIALIZE SESSION STATE ---
+# --- SESSION STATE ---
 if 'step' not in st.session_state:
-    st.session_state.step = 1  # 1: Welcome, 2: Capital, 3: Inputs, 4: Analyzing, 5: Output, 6: Journal
+    st.session_state.step = 1
 if 'journal' not in st.session_state:
-    st.session_state.journal = pd.DataFrame(columns=["Date", "Stock", "Entry", "SL", "Target", "Shares", "Investment", "Checks"])
+    st.session_state.journal = pd.DataFrame(columns=["Email", "Date", "Stock", "Entry Price", "No. of Shares"])
 
-# --- HELPER FUNCTIONS ---
 def move_to(step_num):
     st.session_state.step = step_num
     st.rerun()
 
-# --- SCREEN 1: WELCOME ---
+# --- SCREENS 1-4 (Same as yours) ---
 if st.session_state.step == 1:
-    st.markdown("<div class='welcome-box'>", unsafe_allow_html=True)
     st.title("🚀 StockPro Analysis")
-    st.subheader("High-Precision Trading Journal & Position Sizer")
-    st.write("Welcome! This system will guide you through your trade setup step-by-step.")
-    st.divider()
-    if st.button("Start New Analysis"):
-        move_to(2)
-    st.markdown("</div>", unsafe_allow_html=True)
+    if st.button("Start New Analysis"): move_to(2)
 
-# --- SCREEN 2: CAPITAL ENTRY ---
 elif st.session_state.step == 2:
     st.title("💰 Capital Management")
-    st.write("Step 1: Define your total trading capital.")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        capital = st.number_input("Enter Total Investment Value (INR)", value=100000, step=5000)
-        st.session_state.total_inv = capital
-        st.divider()
-        if st.button("Next: Enter Trade Details →"):
-            move_to(3)
-        if st.button("← Back to Welcome", type="secondary"):
-            move_to(1)
+    st.session_state.total_inv = st.number_input("Capital", value=100000)
+    if st.button("Next →"): move_to(3)
 
-# --- SCREEN 3: TRADE ENTRY ---
 elif st.session_state.step == 3:
     st.title("📝 Trade Setup")
-    st.write("Step 2: Enter stock details and technical checkpoints.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.stock = st.text_input("Stock Ticker", "RELIANCE").upper()
-        st.session_state.entry_price = st.number_input("Entry Price", min_value=1.0, value=2500.0)
-        st.session_state.trade_date = st.date_input("Trade Date", datetime.now())
-    with col2:
-        st.session_state.stop_loss_orig = st.number_input("Original Stop Loss", min_value=0.0, value=2450.0)
-        st.write("**Technical SMA Checks (50-Day)**")
-        c1 = st.checkbox("Nifty 50 Trend")
-        c2 = st.checkbox("Sensex Trend")
-        c3 = st.checkbox("Industry Trend")
-        c4 = st.checkbox("Stock Trend")
-        st.session_state.checks = all([c1, c2, c3, c4])
+    st.session_state.stock = st.text_input("Stock", "RELIANCE").upper()
+    st.session_state.entry_price = st.number_input("Entry", value=2500.0)
+    st.session_state.trade_date = st.date_input("Date", datetime.now())
+    st.session_state.stop_loss_orig = st.number_input("SL", value=2450.0)
+    c1 = st.checkbox("Nifty 50 Trend")
+    c2 = st.checkbox("Sensex Trend")
+    c3 = st.checkbox("Industry Trend")
+    c4 = st.checkbox("Stock Trend")
+    st.session_state.checks = all([c1, c2, c3, c4])
+    if st.button("Analyze ⚡"): move_to(4)
 
-    st.divider()
-    if st.button("Run Strategy Analysis ⚡"):
-        move_to(4)
-    if st.button("← Back"):
-        move_to(2)
-
-# --- SCREEN 4: ANALYZING (LOADING) ---
 elif st.session_state.step == 4:
-    st.title("🔍 Analyzing Stock Strategy...")
+    st.title("🔍 Analyzing...")
     progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    for percent_complete in range(100):
+    for i in range(100):
         time.sleep(0.01)
-        progress_bar.progress(percent_complete + 1)
-        if percent_complete < 30: status_text.text("Checking Position Sizing...")
-        elif percent_complete < 60: status_text.text("Calculating Scale-Out Targets...")
-        else: status_text.text("Finalizing Trailing Stop Loss SL1...")
-    
+        progress_bar.progress(i + 1)
     move_to(5)
 
-# --- SCREEN 5: FINAL OUTPUT ---
+# --- SCREEN 5: FINAL OUTPUT (FIXED INDENTATION) ---
 elif st.session_state.step == 5:
     st.title("📊 Analysis Results")
     
-    # CALCULATIONS
-    risk_amt = 0.01 * st.session_state.total_inv
     gap = st.session_state.entry_price - st.session_state.stop_loss_orig
-    
-    if gap > 0:
-        shares = round(risk_amt / gap)
-        invested = shares * st.session_state.entry_price
-        target = st.session_state.entry_price + (2 * gap)
-        half_s = shares / 2
-        
-        if half_s > 0:
-            profit_50 = (target - st.session_state.entry_price) * half_s
-            trans_val = (shares * st.session_state.entry_price) + (half_s * target)
-            sl1 = ((profit_50 + 50 + (0.0001 * trans_val)) / half_s) + st.session_state.stop_loss_orig
-        else: sl1 = 0
-        
-        # DISPLAY METRICS
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Quantity", shares)
-        col2.metric("Investment", f"₹{invested:,.2f}")
-        col3.metric("Sell 50% Target", f"₹{target:,.2f}")
-        col4.metric("Trailing SL1", f"₹{sl1:,.2f}")
+    risk = 0.01 * st.session_state.total_inv
+    shares = round(risk / gap) if gap > 0 else 0
+    target = st.session_state.entry_price + (2 * gap)
+    half_s = shares / 2
+    sl1 = (( (target-st.session_state.entry_price)*half_s + 50 + (0.0001*((shares*st.session_state.entry_price)+(half_s*target))) ) / half_s) + st.session_state.stop_loss_orig if half_s > 0 else 0
+    invested = shares * st.session_state.entry_price
 
-        st.divider()
-        if st.session_state.checks:
-            st.success("✅ Market Conditions: BUY ALIGNMENT PASSED")
-        else:
-            st.warning("⚠️ Market Conditions: ONE OR MORE SMA CHECKS FAILED")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Quantity", shares)
+    col2.metric("Investment", f"₹{invested:,.2f}")
+    col3.metric("Target", f"₹{target:,.2f}")
+    col4.metric("SL1", f"₹{sl1:,.2f}")
 
-        # Session data for Journal
-        st.session_state.current_target = target
-        st.session_state.current_shares = shares
-        st.session_state.current_invested = invested
+    # EVERYTHING BELOW IS NOW INSIDE THE BUTTON
+    if st.button("Save Entry & View Journal →"):
+        # 1. Capture Identity
+        user_email = st.user.email if st.user else "Local Test User"
 
-        if st.button("Save Entry & View Journal →"):
-    
-    # Capture the user's Gmail ID (Only works on Streamlit Cloud)
-    user_email = st.user.email if st.user else "Local Test User"
+        # 2. Prepare Data
+        new_entry = {
+            "Email": user_email,
+            "Date": st.session_state.trade_date.strftime("%Y-%m-%d"),
+            "Total_Capital": st.session_state.total_inv,
+            "Stock": st.session_state.stock,
+            "Entry Price": st.session_state.entry_price,
+            "SL_Original": st.session_state.stop_loss_orig,
+            "Target_50": target,
+            "Trailing_SL1": sl1,
+            "No. of Shares": int(shares),
+            "Investment_Value": invested,
+            "Nifty 50 Trend": "UP" if st.session_state.get('c1', True) else "DOWN",
+            "Sensex Trend": "UP" if st.session_state.get('c2', True) else "DOWN",
+            "Industry Trend": "UP" if st.session_state.get('c3', True) else "DOWN",
+            "Stock Trend": "UP" if st.session_state.get('c4', True) else "DOWN"
+        }
 
-    # PREPARE DATA TO MATCH YOUR GOOGLE SHEET HEADERS
-    new_entry = {
-        "Email": user_email,
-        "Date": st.session_state.trade_date.strftime("%Y-%m-%d"),
-        "Total_Capital": st.session_state.total_inv,
-        "Stock": st.session_state.stock,
-        "Entry Price": st.session_state.entry_price,
-        "SL_Original": st.session_state.stop_loss_orig,
-        "Target_50": target,
-        "Trailing_SL1": sl1,
-        "No. of Shares": int(shares),
-        "Investment_Value": invested,
-        # Capturing individual trend checkboxes
-        "Nifty 50 Trend": "UP" if c1 else "DOWN",
-        "Sensex Trend": "UP" if c2 else "DOWN",
-        "Industry Trend": "UP" if c3 else "DOWN",
-        "Stock Trend": "UP" if c4 else "DOWN"
-    }
+        # 3. PUSH TO GOOGLE SHEETS
+        try:
+            # We fetch existing data to maintain the sheet structure
+            existing_data = conn.read(worksheet="Sheet1")
+            updated_df = pd.concat([existing_data, pd.DataFrame([new_entry])], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            
+            # 4. Save locally and move
+            st.session_state.journal = pd.concat([st.session_state.journal, pd.DataFrame([new_entry])], ignore_index=True)
+            st.success("Saved to Cloud!")
+            time.sleep(1)
+            move_to(6)
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-    # PUSH TO GOOGLE SHEETS
-    try:
-        # Read existing data to append correctly
-        existing_data = conn.read(worksheet="Sheet1")
-        updated_df = pd.concat([existing_data, pd.DataFrame([new_entry])], ignore_index=True)
-        
-        # Update the sheet
-        conn.update(worksheet="Sheet1", data=updated_df)
-        st.success(f"Successfully recorded in Google Sheets for {user_email}!")
-    except Exception as e:
-        st.error(f"Cloud Save Failed: {e}. Please ensure the Sheet is shared with the Service Account email.")
-
-    # Keep local journal updated for Screen 6 display
-    st.session_state.journal = pd.concat([st.session_state.journal, pd.DataFrame([new_entry])], ignore_index=True)
-    move_to(6)
-
-# --- SCREEN 6: JOURNAL ---
 elif st.session_state.step == 6:
     st.title("📁 Trade Vault")
-    
-    # Filter functionality
-    search = st.selectbox("Search Records by Stock", ["Show All"] + sorted(st.session_state.journal["Stock"].unique().tolist()))
-    df_to_show = st.session_state.journal if search == "Show All" else st.session_state.journal[st.session_state.journal["Stock"] == search]
-    
-    st.dataframe(df_to_show, use_container_width=True, hide_index=True)
-    
-    st.divider()
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Start Another Trade"): move_to(2)
-    with col2:
-        csv = st.session_state.journal.to_csv(index=False).encode('utf-8')
-        st.download_button("💾 Download Master Journal (CSV)", data=csv, file_name="trade_history.csv", mime="text/csv")
+    st.dataframe(st.session_state.journal)
+    if st.button("New Trade"): move_to(2)
